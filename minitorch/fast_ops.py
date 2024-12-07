@@ -30,6 +30,18 @@ Fn = TypeVar("Fn")
 
 
 def njit(fn: Fn, **kwargs: Any) -> Fn:
+    """Wrapper around numba's njit decorator that enables inlining.
+
+    Args:
+    ----
+        fn: Function to compile.
+        **kwargs: Additional keyword arguments passed to numba's njit.
+
+    Returns:
+    -------
+        Compiled function with inlining enabled.
+
+    """
     return _njit(inline="always", **kwargs)(fn)  # type: ignore
 
 
@@ -168,7 +180,21 @@ def tensor_map(
         in_shape: Shape,
         in_strides: Strides,
     ) -> None:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        # TODO: Implement for Task 3.1.
+        if np.array_equal(in_strides, out_strides) and np.array_equal(
+            in_shape, out_shape
+        ):
+            for i in prange(len(out)):
+                out[i] = fn(in_storage[i])
+        else:
+            for i in prange(len(out)):
+                out_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
+                in_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
+                to_index(i, out_shape, out_index)
+                broadcast_index(out_index, out_shape, in_shape, in_index)
+                o = index_to_position(out_index, out_strides)
+                j = index_to_position(in_index, in_strides)
+                out[o] = fn(in_storage[j])
 
     return njit(_map, parallel=True)  # type: ignore
 
@@ -207,7 +233,27 @@ def tensor_zip(
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        # TODO: Implement for Task 3.1.
+        if (
+            np.array_equal(a_strides, out_strides)
+            and np.array_equal(a_shape, out_shape)
+            and np.array_equal(b_strides, out_strides)
+            and np.array_equal(b_shape, out_shape)
+        ):
+            for i in prange(len(out)):
+                out[i] = fn(a_storage[i], b_storage[i])
+        else:
+            for i in prange(len(out)):
+                out_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
+                a_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
+                b_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
+                to_index(i, out_shape, out_index)
+                o = index_to_position(out_index, out_strides)
+                broadcast_index(out_index, out_shape, a_shape, a_index)
+                j = index_to_position(a_index, a_strides)
+                broadcast_index(out_index, out_shape, b_shape, b_index)
+                k = index_to_position(b_index, b_strides)
+                out[o] = fn(a_storage[j], b_storage[k])
 
     return njit(_zip, parallel=True)  # type: ignore
 
@@ -242,7 +288,22 @@ def tensor_reduce(
         a_strides: Strides,
         reduce_dim: int,
     ) -> None:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        # TODO: Implement for Task 3.1.
+        for i in prange(len(out)):
+            out_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
+            reduce_size = a_shape[reduce_dim]
+            to_index(i, out_shape, out_index)
+            o = index_to_position(out_index, out_strides)
+
+            # Calculate base position for a_storage
+            base_position = index_to_position(out_index, a_strides)
+            reduce_stride = a_strides[reduce_dim]
+
+            # Inner loop only does computation, no function calls
+            acc = float(out[o])
+            for s in range(reduce_size):
+                acc = fn(acc, float(a_storage[base_position + s * reduce_stride]))
+            out[o] = acc
 
     return njit(_reduce, parallel=True)  # type: ignore
 
@@ -293,7 +354,34 @@ def _tensor_matrix_multiply(
     a_batch_stride = a_strides[0] if a_shape[0] > 1 else 0
     b_batch_stride = b_strides[0] if b_shape[0] > 1 else 0
 
-    raise NotImplementedError("Need to include this file from past assignment.")
+    # TODO: Implement for Task 3.2.
+    out_batch_stride = out_strides[0] if out_shape[0] > 1 else 0
+
+    batch_size = max(out_shape[0], 1)
+    rows = out_shape[-2]
+    cols = out_shape[-1]
+    common_dim = a_shape[-1]  # a_shape[-1] == b_shape[-2]
+
+    for n in prange(batch_size):
+        for i in range(rows):
+            for j in range(cols):
+                # Calculate base positions outside inner loop
+                a_base = n * a_batch_stride + i * a_strides[-2]
+                b_base = n * b_batch_stride + j * b_strides[-1]
+                out_idx = (
+                    n * out_batch_stride + i * out_strides[-2] + j * out_strides[-1]
+                )
+
+                # Inner loop with single multiply, no writes
+                temp = 0.0
+                for k in range(common_dim):
+                    temp += (
+                        a_storage[a_base + k * a_strides[-1]]
+                        * b_storage[b_base + k * b_strides[-2]]
+                    )
+
+                # Single write outside inner loop
+                out[out_idx] = temp
 
 
 tensor_matrix_multiply = njit(_tensor_matrix_multiply, parallel=True)
