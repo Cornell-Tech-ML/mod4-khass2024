@@ -251,7 +251,51 @@ def _tensor_conv2d(
     s20, s21, s22, s23 = s2[0], s2[1], s2[2], s2[3]
 
     # TODO: Implement for Task 4.2.
-    raise NotImplementedError("Need to implement for Task 4.2")
+    for batch in prange(batch_):
+        for out_ch in prange(out_channels):
+            for h in range(out_shape[2]):
+                for w in range(out_shape[3]):
+                    # Position in the output tensor
+                    out_pos = (
+                        batch * out_strides[0]
+                        + out_ch * out_strides[1]
+                        + h * out_strides[2]
+                        + w * out_strides[3]
+                    )
+                    acc = 0.0
+                    
+                    # Sum over input channels and kernel dimensions
+                    for in_ch in range(in_channels):
+                        for k1 in range(kh):
+                            for k2 in range(kw):
+                                # Calculate input positions with reverse handling
+                                h_pos = h - kh + k1 + 1 if reverse else h + k1
+                                w_pos = w - kw + k2 + 1 if reverse else w + k2
+                                
+                                # Skip if outside input bounds
+                                if (h_pos < 0 or h_pos >= height or 
+                                    w_pos < 0 or w_pos >= width):
+                                    continue
+                                
+                                # Input position using cached strides
+                                in_pos = (
+                                    batch * s10
+                                    + in_ch * s11
+                                    + h_pos * s12
+                                    + w_pos * s13
+                                )
+                                
+                                # Weight position using cached strides
+                                weight_pos = (
+                                    out_ch * s20
+                                    + in_ch * s21
+                                    + k1 * s22
+                                    + k2 * s23
+                                )
+                                
+                                acc += input[in_pos] * weight[weight_pos]
+                    
+                    out[out_pos] = acc
 
 
 tensor_conv2d = njit(_tensor_conv2d, parallel=True, fastmath=True)
