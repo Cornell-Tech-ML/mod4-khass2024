@@ -112,21 +112,73 @@ class Scalar:
         return self.history is not None and self.history.last_fn is None
 
     def is_constant(self) -> bool:
+        """Check if the scalar is a constant (has no history).
+
+        Returns
+        -------
+        bool: True if the scalar is a constant, False otherwise.
+
+        """
         return self.history is None
 
     @property
     def parents(self) -> Iterable[Variable]:
-        """Get the variables used to create this one."""
+        """Get the parent variables of this scalar.
+
+        Returns
+        -------
+        Iterable[Variable]: An iterable of parent variables.
+
+        Raises
+        ------
+        AssertionError: If the scalar has no history.
+
+        """
         assert self.history is not None
         return self.history.inputs
 
     def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
+        """Apply the chain rule to compute gradients.
+
+        This method computes the gradients with respect to the inputs
+        of the last function applied to this scalar.
+
+        Args:
+        ----
+        d_output: Any
+            The gradient of the output with respect to this scalar.
+
+        Returns:
+        -------
+        Iterable[Tuple[Variable, Any]]:
+            An iterable of tuples, each containing a parent variable
+            and its corresponding gradient.
+
+        Raises:
+        ------
+        AssertionError: If the scalar has no history, last function, or context.
+
+        """
         h = self.history
         assert h is not None
         assert h.last_fn is not None
         assert h.ctx is not None
 
-        raise NotImplementedError("Need to include this file from past assignment.")
+        # TODO: Implement for Task 1.3.
+        # Retrieve the local derivatives from the last function
+        local_derivatives = h.last_fn._backward(h.ctx, d_output)
+
+        # Ensure local_derivatives is always a tuple
+        if not isinstance(local_derivatives, tuple):
+            local_derivatives = (local_derivatives,)
+
+        # Pair local derivatives with corresponding input variables
+        # Filter out constants (inputs without history)
+        return [
+            (inp, der)
+            for inp, der in zip(h.inputs, local_derivatives)
+            if not inp.is_constant()
+        ]
 
     def backward(self, d_output: Optional[float] = None) -> None:
         """Calls autodiff to fill in the derivatives for the history of this object.
@@ -141,17 +193,50 @@ class Scalar:
             d_output = 1.0
         backpropagate(self, d_output)
 
-    raise NotImplementedError("Need to include this file from past assignment.")
+    # TODO: Implement for Task 1.2.
+    def __lt__(self, other: ScalarLike) -> Scalar:
+        return LT.apply(self, other)
+
+    def __gt__(self, other: ScalarLike) -> Scalar:
+        return LT.apply(other, self)
+
+    def __eq__(self, other: ScalarLike) -> Scalar:
+        return EQ.apply(self, other)
+
+    def __sub__(self, other: ScalarLike) -> Scalar:
+        return Add.apply(self, Neg.apply(other))
+
+    def __neg__(self) -> Scalar:
+        return Neg.apply(self)
+
+    def __add__(self, other: ScalarLike) -> Scalar:
+        return Add.apply(self, other)
+
+    def log(self) -> Scalar:
+        """Applies the natural logarithm function to the scalar."""
+        return Log.apply(self)
+
+    def exp(self) -> Scalar:
+        """Applies the exponential function to the scalar."""
+        return Exp.apply(self)
+
+    def sigmoid(self) -> Scalar:
+        """Applies the sigmoid function to the scalar."""
+        return Sigmoid.apply(self)
+
+    def relu(self) -> Scalar:
+        """Applies the Rectified Linear Unit (ReLU) function to the scalar."""
+        return ReLU.apply(self)
 
 
 def derivative_check(f: Any, *scalars: Scalar) -> None:
     """Checks that autodiff works on a python function.
     Asserts False if derivative is incorrect.
 
-    Parameters
-    ----------
-        f : function from n-scalars to 1-scalar.
-        *scalars  : n input scalar values.
+    Args:
+    ----
+        f: The function to check.
+        *scalars: Input scalars for the function.
 
     """
     out = f(*scalars)
