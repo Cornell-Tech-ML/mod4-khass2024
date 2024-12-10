@@ -128,23 +128,14 @@ def logsoftmax(input: Tensor, dim: int) -> Tensor:
     # Get max for numerical stability
     m = max(input, dim)
     
-    # Create proper shape for broadcasting
-    view_shape = list(m.shape)
-    view_shape.insert(dim, 1)
-    m = m.view(*view_shape)
-    
     # Compute exp(x - max(x)) for numerical stability
     exp_x = (input - m).exp()
     
-    # Sum along the specified dimension
+    # Sum along the specified dimension (keep dim)
     sum_exp = exp_x.sum(dim=dim)
     
-    # Create proper shape for broadcasting
-    view_shape = list(sum_exp.shape)
-    view_shape.insert(dim, 1)
-    sum_exp = sum_exp.view(*view_shape)
-    
-    return input - m - sum_exp.log()
+    # Compute log softmax directly
+    return (input - m) - sum_exp.log()
 
 def maxpool2d(input: Tensor, kernel: Tuple[int, int]) -> Tensor:
     """Tiled max pooling 2D."""
