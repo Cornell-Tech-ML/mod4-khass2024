@@ -38,5 +38,5 @@ The files that will be synced are:
 
 ## Link to the sentiment.txt and mnist.txt logs
 
-sentiment.txt - https://github.com/Cornell-Tech-ML/mod4-khass2024/blob/master/sentiment.txt  
+sentiment.txt - https://github.com/Cornell-Tech-ML/mod4-khass2024/blob/master/sentiment.txt<br>
 mnist.txt - https://github.com/Cornell-Tech-ML/mod4-khass2024/blob/master/mnist.txt
