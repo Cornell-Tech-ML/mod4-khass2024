@@ -15,6 +15,16 @@ class SGD(Optimizer):
         self.lr = lr
 
     def zero_grad(self) -> None:
+        """Sets the gradients of all parameters to zero.
+
+        This method iterates through all parameters and sets their gradients
+        (either 'derivative' or 'grad' attribute) to None.
+
+        Returns
+        -------
+            None
+
+        """
         for p in self.parameters:
             if p.value is None:
                 continue
@@ -26,6 +36,17 @@ class SGD(Optimizer):
                     p.value.grad = None
 
     def step(self) -> None:
+        """Performs a single optimization step.
+
+        This method updates each parameter's value based on its current gradient
+        and the learning rate. It handles both Scalar values (with 'derivative')
+        and Tensor values (with 'grad').
+
+        Returns
+        -------
+            None
+
+        """
         for p in self.parameters:
             if p.value is None:
                 continue

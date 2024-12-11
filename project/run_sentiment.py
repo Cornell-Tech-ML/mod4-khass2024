@@ -35,7 +35,10 @@ class Conv1d(minitorch.Module):
 
     def forward(self, input):
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # Apply 1D convolution using the conv1d function
+        conv = minitorch.conv1d(input, self.weights.value)
+        # Add bias (broadcasting will handle the dimensions)
+        return conv + self.bias.value
 
 
 class CNNSentimentKim(minitorch.Module):
@@ -62,14 +65,54 @@ class CNNSentimentKim(minitorch.Module):
         super().__init__()
         self.feature_map_size = feature_map_size
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        self.dropout = dropout
+
+        # Create a Conv1d layer for each filter size
+        self.convs = []
+        for i, k in enumerate(filter_sizes):
+            # Register each conv layer as a named attribute
+            setattr(self, f'conv_{i}', Conv1d(embedding_size, feature_map_size, k))
+            self.convs.append(getattr(self, f'conv_{i}'))
+
+        # Linear layer for classification
+        # Total input size is feature_map_size * number of filter sizes
+        self.linear = Linear(feature_map_size, 1)
 
     def forward(self, embeddings):
         """
         embeddings tensor: [batch x sentence length x embedding dim]
         """
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # Permute to [batch x embedding dim x sentence length] for conv1d
+        embeddings = embeddings.permute(0, 2, 1)
+
+        # Apply each convolution and collect results
+        conv_outputs = []
+        for conv in self.convs:
+            # Apply convolution
+            out = conv(embeddings)
+            # Apply ReLU
+            out = out.relu()
+            # Max over time (across sentence length dimension)
+            out = minitorch.max(out, dim=2)
+            conv_outputs.append(out)
+
+        # Sum all conv outputs instead of concatenating
+        features = conv_outputs[0]
+        for out in conv_outputs[1:]:
+            features = features + out
+
+        # Apply dropout
+        features = minitorch.nn.dropout(features, self.dropout, self.training == False)
+
+        # Reshape features to (batch_size, feature_map_size) before linear layer
+        features = features.view(features.shape[0], features.shape[1])
+
+        # Apply final linear layer
+        output = self.linear(features)
+
+        # Apply sigmoid for binary classification
+        return output.sigmoid().view(output.shape[0])
 
 
 # Evaluation helper methods
