@@ -69,8 +69,10 @@ class CNNSentimentKim(minitorch.Module):
 
         # Create a Conv1d layer for each filter size
         self.convs = []
-        for k in filter_sizes:
-            self.convs.append(Conv1d(embedding_size, feature_map_size, k))
+        for i, k in enumerate(filter_sizes):
+            # Register each conv layer as a named attribute
+            setattr(self, f'conv_{i}', Conv1d(embedding_size, feature_map_size, k))
+            self.convs.append(getattr(self, f'conv_{i}'))
 
         # Linear layer for classification
         # Total input size is feature_map_size * number of filter sizes
