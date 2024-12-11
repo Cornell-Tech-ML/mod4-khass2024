@@ -42,7 +42,10 @@ class Conv2d(minitorch.Module):
 
     def forward(self, input):
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # Apply 2D convolution using conv2d function
+        conv_out = minitorch.conv2d(input, self.weights.value)
+        # Add bias - need to broadcast across height and width dimensions
+        return conv_out + self.bias.value
 
 
 class Network(minitorch.Module):
@@ -68,11 +71,45 @@ class Network(minitorch.Module):
         self.out = None
 
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # First conv layer with 4 output channels
+        self.conv1 = Conv2d(1, 4, 3, 3)
+
+        # Second conv layer with 8 output channels
+        self.conv2 = Conv2d(4, 8, 3, 3)
+
+        # Linear layers
+        # After pooling, size will be batch x 8 x 7 x 7 = batch x 392
+        self.linear1 = Linear(392, 64)
+        self.linear2 = Linear(64, 10)
+
+        # Dropout rate
+        self.dropout = 0.25
 
     def forward(self, x):
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # First conv + ReLU
+        x = self.conv1(x).relu()
+        self.mid = x  # Save for visualization
+
+        # Second conv + ReLU
+        x = self.conv2(x).relu()
+        self.out = x  # Save for visualization
+
+        # Apply pooling - using avgpool2d with 4x4 kernel
+        x = minitorch.avgpool2d(x, (4, 4))
+
+        # Flatten - combine channels, height, width into single dimension
+        batch, channels, height, width = x.shape
+        x = x.view(batch, channels * height * width)
+
+        # First linear layer + ReLU + dropout
+        x = self.linear1(x).relu()
+        if self.training:
+            x = x * (minitorch.rand(x.shape) > self.dropout)
+
+        # Final linear layer and logsoftmax
+        x = self.linear2(x)
+        return minitorch.logsoftmax(x, dim=1)
 
 
 def make_mnist(start, stop):
